@@ -2,7 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
-async function updateLottoData() {
+// 메인 함수
+async function main() {
   try {
     console.log('스크립트 실행 시작...');
     
@@ -22,25 +23,14 @@ async function updateLottoData() {
     if (fs.existsSync(dataPath)) {
       try {
         const fileContent = fs.readFileSync(dataPath, 'utf8');
-        console.log('파일 내용 길이:', fileContent.length);
-        
         if (fileContent.trim()) {
           lottoData = JSON.parse(fileContent);
           console.log('데이터 파일 읽기 성공. 항목 수:', lottoData.length);
-          
-          // 현재 저장된 회차 번호 출력
-          const rounds = lottoData.map(item => item.round);
-          console.log('현재 저장된 회차 번호:', rounds.join(', '));
-          
-          // 1172회차가 있는지 확인
-          const has1172 = lottoData.some(item => item.round === 1172);
-          console.log('1172회차 데이터 존재 여부:', has1172);
         } else {
           console.log('파일이 비어 있습니다. 빈 배열로 초기화합니다.');
           fs.writeFileSync(dataPath, '[]');
         }
       } catch (readError) {
-        console.error('파일 읽기/파싱 오류:', readError);
         console.log('빈 배열로 초기화합니다.');
         fs.writeFileSync(dataPath, '[]');
       }
@@ -49,77 +39,53 @@ async function updateLottoData() {
       fs.writeFileSync(dataPath, '[]');
     }
     
-    // 4. 테스트를 위해 1172회차 데이터 가져오기
+    // 4. 테스트를 위해 1172회차 데이터 직접 가져오기
     const testRound = 1172;
     console.log(`테스트: ${testRound}회차 데이터 가져오기 시도...`);
     
     // 5. 동행복권 API에서 데이터 가져오기
-    try {
-      const response = await axios.get(
-        `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${testRound}`
-      );
+    const response = await axios.get(
+      `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${testRound}`
+    );
+    
+    // 6. 데이터 확인
+    if (response.data && response.data.returnValue === 'success') {
+      console.log(`${testRound}회차 데이터를 찾았습니다!`);
       
-      console.log('API 응답 상태:', response.status);
-      console.log('API 응답 데이터:', JSON.stringify(response.data));
+      // 7. 필요한 데이터만 추출
+      const newData = {
+        round: parseInt(response.data.drwNo),
+        numbers: [
+          parseInt(response.data.drwtNo1),
+          parseInt(response.data.drwtNo2),
+          parseInt(response.data.drwtNo3),
+          parseInt(response.data.drwtNo4),
+          parseInt(response.data.drwtNo5),
+          parseInt(response.data.drwtNo6)
+        ].sort((a, b) => a - b),
+        bonusNumber: parseInt(response.data.bnusNo),
+        firstPrize: parseInt(response.data.firstWinamnt),
+        firstWinners: parseInt(response.data.firstPrzwnerCo),
+        drawDate: formatDate(response.data.drwNoDate)
+      };
       
-      // 6. 데이터 확인
-      if (response.data && response.data.returnValue === 'success') {
-        console.log(`${testRound}회차 데이터를 찾았습니다!`);
-        
-        // 7. 데이터 형식 변환
-        const newData = {
-          round: response.data.drwNo,
-          numbers: [
-            response.data.drwtNo1,
-            response.data.drwtNo2,
-            response.data.drwtNo3,
-            response.data.drwtNo4,
-            response.data.drwtNo5,
-            response.data.drwtNo6
-          ].sort((a, b) => a - b),
-          bonusNumber: response.data.bnusNo,
-          firstPrize: response.data.firstWinamnt,
-          firstWinners: response.data.firstPrzwnerCo,
-          secondPrize: Math.floor(response.data.firstWinamnt / 10), // 임의 계산
-          secondWinners: Math.floor(Math.random() * 50) + 10, // 임의 값
-          drawDate: formatDate(response.data.drwNoDate)
-        };
-        
-        console.log('변환된 데이터:', JSON.stringify(newData, null, 2));
-        
-        // 8. 기존 데이터에서 1172회 제거 (있는 경우)
-        const beforeLength = lottoData.length;
-        lottoData = lottoData.filter(item => item.round !== testRound);
-        console.log(`${beforeLength - lottoData.length}개의 1172회차 데이터가 제거되었습니다.`);
-        
-        // 9. 새 데이터 추가
-        lottoData.push(newData);
-        console.log('새 데이터가 추가되었습니다.');
-        
-        // 10. 회차 기준 내림차순 정렬
-        lottoData.sort((a, b) => b.round - a.round);
-        console.log('데이터가 회차 기준으로 정렬되었습니다.');
-        
-        // 11. 파일에 저장
-        fs.writeFileSync(dataPath, JSON.stringify(lottoData, null, 2));
-        console.log(`${testRound}회차 데이터가 성공적으로 추가되었습니다.`);
-        console.log('현재 데이터 항목 수:', lottoData.length);
-      } else {
-        console.log(`${testRound}회차 데이터를 가져오지 못했습니다.`);
-        console.log('API 응답:', response.data);
-      }
-    } catch (apiError) {
-      console.error('API 요청 오류:', apiError);
-      console.error('오류 세부 정보:', apiError.message);
-      if (apiError.response) {
-        console.error('응답 상태:', apiError.response.status);
-        console.error('응답 데이터:', apiError.response.data);
-      }
+      // 8. 기존 데이터에서 1172회 제거 (있는 경우)
+      lottoData = lottoData.filter(item => item.round !== testRound);
+      
+      // 9. 새 데이터 추가
+      lottoData.push(newData);
+      
+      // 10. 회차 기준 내림차순 정렬
+      lottoData.sort((a, b) => b.round - a.round);
+      
+      // 11. 파일에 저장
+      fs.writeFileSync(dataPath, JSON.stringify(lottoData, null, 2));
+      console.log(`${testRound}회차 데이터가 성공적으로 추가되었습니다.`);
+    } else {
+      console.log(`${testRound}회차 데이터를 가져오지 못했습니다.`);
     }
   } catch (error) {
     console.error('로또 데이터 업데이트 중 오류 발생:', error);
-    console.error('오류 세부 정보:', error.message);
-    console.error('오류 스택:', error.stack);
     process.exit(1);
   }
 }
@@ -134,10 +100,9 @@ function formatDate(dateStr) {
     
     return `${year}년 ${month}월 ${day}일`;
   } catch (error) {
-    console.error('날짜 변환 오류:', error);
     return dateStr; // 오류 시 원본 반환
   }
 }
 
 // 스크립트 실행
-updateLottoData();
+main();
