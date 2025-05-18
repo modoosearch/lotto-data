@@ -145,12 +145,27 @@ async function main() {
       lottoData.push(newData);
     }
     
-    // 14. 회차 번호로 내림차순 정렬
+    // 14. 회차 번호로 내림차순 정렬 (확실하게 처리)
+    console.log('데이터를 내림차순으로 정렬합니다 (최신 회차가 맨 위)...');
     lottoData.sort((a, b) => {
+      // 문자열을 숫자로 변환
       const roundA = typeof a.round === 'string' ? parseInt(a.round) : a.round;
       const roundB = typeof b.round === 'string' ? parseInt(b.round) : b.round;
+      
+      // 내림차순 정렬 (큰 숫자가 앞으로)
       return roundB - roundA;
     });
+    
+    // 정렬 확인
+    console.log('정렬 후 처음 3개 항목:');
+    for (let i = 0; i < Math.min(3, lottoData.length); i++) {
+      console.log(`인덱스 ${i}: round=${lottoData[i].round}`);
+    }
+    
+    console.log('정렬 후 마지막 3개 항목:');
+    for (let i = Math.max(0, lottoData.length - 3); i < lottoData.length; i++) {
+      console.log(`인덱스 ${i}: round=${lottoData[i].round}`);
+    }
     
     // 15. 데이터 저장
     fs.writeFileSync(DATA_FILE, JSON.stringify(lottoData, null, 2));
