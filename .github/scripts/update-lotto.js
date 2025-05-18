@@ -131,21 +131,22 @@ async function main() {
       return;
     }
     
-    // 13. 기존 데이터에 새 데이터 추가 (중복 방지)
+    // 13. 기존 데이터에서 중복 제거
     const existingIndex = lottoData.findIndex(item => {
       const itemRound = typeof item.round === 'string' ? parseInt(item.round) : item.round;
       return itemRound === currentRound;
     });
     
     if (existingIndex !== -1) {
-      console.log(`${currentRound}회차 데이터가 이미 존재합니다. 업데이트합니다.`);
-      lottoData[existingIndex] = newData;
-    } else {
-      console.log(`${currentRound}회차 새 데이터를 추가합니다.`);
-      lottoData.push(newData);
+      console.log(`${currentRound}회차 데이터가 이미 존재합니다. 제거 후 맨 앞에 추가합니다.`);
+      lottoData.splice(existingIndex, 1);
     }
     
-    // 14. 회차 번호로 내림차순 정렬 (확실하게 처리)
+    // 14. 새 데이터를 배열의 맨 앞에 추가 (중요: unshift 사용)
+    console.log(`${currentRound}회차 새 데이터를 배열의 맨 앞에 추가합니다.`);
+    lottoData.unshift(newData);
+    
+    // 15. 회차 번호로 내림차순 정렬 (확실하게 처리)
     console.log('데이터를 내림차순으로 정렬합니다 (최신 회차가 맨 위)...');
     lottoData.sort((a, b) => {
       // 문자열을 숫자로 변환
@@ -156,7 +157,7 @@ async function main() {
       return roundB - roundA;
     });
     
-    // 정렬 확인
+    // 16. 정렬 확인
     console.log('정렬 후 처음 3개 항목:');
     for (let i = 0; i < Math.min(3, lottoData.length); i++) {
       console.log(`인덱스 ${i}: round=${lottoData[i].round}`);
@@ -167,9 +168,36 @@ async function main() {
       console.log(`인덱스 ${i}: round=${lottoData[i].round}`);
     }
     
-    // 15. 데이터 저장
-    fs.writeFileSync(DATA_FILE, JSON.stringify(lottoData, null, 2));
+    // 17. 데이터 저장 전 확인
+    if (lottoData.length > 0) {
+      const firstItem = lottoData[0];
+      const firstRound = typeof firstItem.round === 'string' ? parseInt(firstItem.round) : firstItem.round;
+      
+      if (firstRound !== currentRound) {
+        console.error(`오류: 정렬 후 첫 번째 항목이 최신 회차(${currentRound})가 아닙니다. 강제로 순서를 조정합니다.`);
+        
+        // 강제로 최신 데이터를 맨 앞으로 이동
+        const newDataIndex = lottoData.findIndex(item => {
+          const itemRound = typeof item.round === 'string' ? parseInt(item.round) : item.round;
+          return itemRound === currentRound;
+        });
+        
+        if (newDataIndex !== -1) {
+          const newDataItem = lottoData.splice(newDataIndex, 1)[0];
+          lottoData.unshift(newDataItem);
+        }
+      }
+    }
+    
+    // 18. 데이터 저장
+    const jsonData = JSON.stringify(lottoData, null, 2);
+    fs.writeFileSync(DATA_FILE, jsonData);
     console.log(`${lottoData.length}개의 데이터가 저장되었습니다.`);
+    
+    // 19. 저장된 데이터 확인
+    console.log('저장된 JSON의 처음 부분:');
+    const savedJson = jsonData.substring(0, 500) + '...';
+    console.log(savedJson);
     
     console.log('로또 데이터 업데이트 완료!');
   } catch (error) {
