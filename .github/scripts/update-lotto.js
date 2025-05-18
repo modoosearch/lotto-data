@@ -23,8 +23,19 @@ async function main() {
     // 2. 최신 회차 확인
     let latestRound = 0;
     if (lottoData.length > 0) {
+      // 각 항목의 round 값을 출력하여 디버깅
+      console.log('기존 데이터의 회차 번호 샘플:');
+      for (let i = 0; i < Math.min(3, lottoData.length); i++) {
+        console.log(`인덱스 ${i}: round=${lottoData[i].round}, 타입=${typeof lottoData[i].round}`);
+      }
+      
       // 모든 데이터의 round 값을 확인하여 최대값 찾기
-      latestRound = Math.max(...lottoData.map(item => item.round));
+      // 문자열인 경우 숫자로 변환
+      const rounds = lottoData.map(item => {
+        const round = typeof item.round === 'string' ? parseInt(item.round) : item.round;
+        return isNaN(round) ? 0 : round;
+      });
+      latestRound = Math.max(...rounds);
       console.log(`기존 데이터의 최신 회차: ${latestRound}`);
     }
     
@@ -45,7 +56,8 @@ async function main() {
     const winRoundText = $('.win_result h4').text().trim();
     console.log('추출된 회차 텍스트:', winRoundText);
     
-    const roundMatch = winRoundText.match(/제(\d+)회/);
+    // 수정된 정규식 패턴: "제"가 없는 경우도 처리
+    const roundMatch = winRoundText.match(/(\d+)회/);
     if (!roundMatch) {
       console.log('회차 정보를 찾을 수 없습니다. 기존 데이터를 유지합니다.');
       return;
@@ -120,7 +132,11 @@ async function main() {
     }
     
     // 13. 기존 데이터에 새 데이터 추가 (중복 방지)
-    const existingIndex = lottoData.findIndex(item => item.round === currentRound);
+    const existingIndex = lottoData.findIndex(item => {
+      const itemRound = typeof item.round === 'string' ? parseInt(item.round) : item.round;
+      return itemRound === currentRound;
+    });
+    
     if (existingIndex !== -1) {
       console.log(`${currentRound}회차 데이터가 이미 존재합니다. 업데이트합니다.`);
       lottoData[existingIndex] = newData;
@@ -130,7 +146,11 @@ async function main() {
     }
     
     // 14. 회차 번호로 내림차순 정렬
-    lottoData.sort((a, b) => b.round - a.round);
+    lottoData.sort((a, b) => {
+      const roundA = typeof a.round === 'string' ? parseInt(a.round) : a.round;
+      const roundB = typeof b.round === 'string' ? parseInt(b.round) : b.round;
+      return roundB - roundA;
+    });
     
     // 15. 데이터 저장
     fs.writeFileSync(DATA_FILE, JSON.stringify(lottoData, null, 2));
