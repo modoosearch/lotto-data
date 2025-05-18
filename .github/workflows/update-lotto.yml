@@ -20,7 +20,7 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm install axios
+        run: npm install axios cheerio
 
       - name: Create data directory if not exists
         run: mkdir -p data
