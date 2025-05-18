@@ -2,17 +2,17 @@ name: Update Lotto Data
 
 on:
   schedule:
-    - cron: '0 21 * * 6'  # 매주 토요일 21시에 실행
-  workflow_dispatch:  # 수동으로 실행할 수 있는 옵션
+    - cron: '0 21 * * 6'  # 매주 토요일 21:00 (KST)
+  workflow_dispatch:  # 수동 실행 가능
 
 jobs:
-  update-lotto-data:
+  update-data:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # 전체 히스토리 가져오기
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -26,12 +26,17 @@ jobs:
         run: |
           # 로또 데이터 업데이트 스크립트 실행
           node .github/scripts/update-lotto.js
-        env:
-          API_KEY: ${{ secrets.API_KEY }}
 
-      - name: Commit and push if changed
+      - name: Configure Git
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+
+      - name: Commit and push if changed
+        run: |
+          git pull origin main --rebase  # 원격 변경사항 가져오기
           git add data/lotto-data.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update lotto data - $(date +'%Y-%m-%d')" && git push)
+          git diff --quiet && git diff --staged --quiet || git commit -m "Update lotto data - $(date +'%Y-%m-%d')"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
