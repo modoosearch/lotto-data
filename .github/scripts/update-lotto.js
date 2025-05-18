@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const cheerio = require('cheerio');
 
 // 메인 함수
 async function main() {
@@ -43,64 +44,77 @@ async function main() {
     const testRound = 1172;
     console.log(`테스트: ${testRound}회차 데이터 가져오기 시도...`);
     
-    // 5. 동행복권 API에서 데이터 가져오기
+    // 5. 동행복권 웹사이트에서 데이터 가져오기
     const response = await axios.get(
-      `https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${testRound}`
+      `https://www.dhlottery.co.kr/gameResult.do?method=byWin&drwNo=${testRound}`
     );
     
-    // 6. 데이터 확인
-    if (response.data && response.data.returnValue === 'success') {
-      console.log(`${testRound}회차 데이터를 찾았습니다!`);
-      
-      // 7. 필요한 데이터만 추출
-      const newData = {
-        round: parseInt(response.data.drwNo),
-        numbers: [
-          parseInt(response.data.drwtNo1),
-          parseInt(response.data.drwtNo2),
-          parseInt(response.data.drwtNo3),
-          parseInt(response.data.drwtNo4),
-          parseInt(response.data.drwtNo5),
-          parseInt(response.data.drwtNo6)
-        ].sort((a, b) => a - b),
-        bonusNumber: parseInt(response.data.bnusNo),
-        firstPrize: parseInt(response.data.firstWinamnt),
-        firstWinners: parseInt(response.data.firstPrzwnerCo),
-        drawDate: formatDate(response.data.drwNoDate)
-      };
-      
-      // 8. 기존 데이터에서 1172회 제거 (있는 경우)
-      lottoData = lottoData.filter(item => item.round !== testRound);
-      
-      // 9. 새 데이터 추가
-      lottoData.push(newData);
-      
-      // 10. 회차 기준 내림차순 정렬
-      lottoData.sort((a, b) => b.round - a.round);
-      
-      // 11. 파일에 저장
-      fs.writeFileSync(dataPath, JSON.stringify(lottoData, null, 2));
-      console.log(`${testRound}회차 데이터가 성공적으로 추가되었습니다.`);
-    } else {
-      console.log(`${testRound}회차 데이터를 가져오지 못했습니다.`);
-    }
+    // 6. HTML 파싱
+    const $ = cheerio.load(response.data);
+    
+    // 7. 회차 정보 추출
+    const roundText = $('.win_result h4 strong').text().trim();
+    const round = parseInt(roundText.replace(/[^0-9]/g, ''));
+    console.log('회차:', round);
+    
+    // 8. 추첨일 추출
+    const drawDateText = $('.win_result p.desc').text().trim();
+    const drawDate = drawDateText.replace(/[$$$$]/g, '');
+    console.log('추첨일:', drawDate);
+    
+    // 9. 당첨번호 추출
+    const winNumbers = [];
+    $('.win_result .num.win p span').each((index, element) => {
+      const number = parseInt($(element).text().trim());
+      winNumbers.push(number);
+    });
+    console.log('당첨번호:', winNumbers);
+    
+    // 10. 보너스 번호 추출
+    const bonusNumber = parseInt($('.win_result .num.bonus p span').text().trim());
+    console.log('보너스번호:', bonusNumber);
+    
+    // 11. 1등 당첨자 수 추출 (제공된 셀렉터 사용)
+    const firstWinnersText = $('table.tbl_data tbody tr:nth-child(1) td:nth-child(3)').text().trim();
+    const firstWinners = parseInt(firstWinnersText.replace(/[^0-9]/g, ''));
+    console.log('1등 당첨자 수:', firstWinners);
+    
+    // 12. 1인당 당첨금액 추출 (제공된 셀렉터 사용)
+    const firstPrizeText = $('table.tbl_data tbody tr:nth-child(1) td:nth-child(4)').text().trim();
+    const firstPrize = parseInt(firstPrizeText.replace(/[^0-9]/g, ''));
+    console.log('1인당 당첨금액:', firstPrize);
+    
+    // 13. 데이터 객체 생성
+    const newData = {
+      round,
+      numbers: winNumbers,
+      bonusNumber,
+      firstPrize,
+      firstWinners,
+      drawDate
+    };
+    
+    console.log('파싱된 데이터:', newData);
+    
+    // 14. 기존 데이터에서 같은 회차 제거 (있는 경우)
+    lottoData = lottoData.filter(item => item.round !== round);
+    
+    // 15. 새 데이터 추가
+    lottoData.push(newData);
+    
+    // 16. 회차 기준 내림차순 정렬
+    lottoData.sort((a, b) => b.round - a.round);
+    
+    // 17. 파일에 저장
+    fs.writeFileSync(dataPath, JSON.stringify(lottoData, null, 2));
+    console.log(`${round}회차 데이터가 성공적으로 추가되었습니다.`);
   } catch (error) {
     console.error('로또 데이터 업데이트 중 오류 발생:', error);
+    console.error('오류 세부 정보:', error.message);
+    if (error.response) {
+      console.error('응답 상태:', error.response.status);
+    }
     process.exit(1);
-  }
-}
-
-// 날짜 형식 변환 (YYYY-MM-DD -> YYYY년 MM월 DD일)
-function formatDate(dateStr) {
-  try {
-    const date = new Date(dateStr);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    
-    return `${year}년 ${month}월 ${day}일`;
-  } catch (error) {
-    return dateStr; // 오류 시 원본 반환
   }
 }
 
