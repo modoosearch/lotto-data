@@ -2,7 +2,7 @@ name: Update Lotto Data
 
 on:
   schedule:
-    - cron: '0 21 * * 6'  # 매주 토요일 21:00 (KST)
+    - cron: '0 22 * * 6'  # 매주 토요일 21:00 (KST)
   workflow_dispatch:  # 수동 실행 가능
 
 jobs:
@@ -20,7 +20,7 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm install axios cheerio
+        run: npm install axios cheerio iconv-lite
 
       - name: Create data directory if not exists
         run: mkdir -p data
