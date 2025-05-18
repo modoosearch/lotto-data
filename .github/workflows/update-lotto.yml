@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # 전체 히스토리 가져오기 (중요)
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -23,7 +25,7 @@ jobs:
         run: npm install axios cheerio iconv-lite
 
       - name: Create data directory if not exists
-        run: mkdir -p data
+        run: mkdir -p data/backups
 
       - name: Initialize data file if not exists
         run: |
@@ -31,6 +33,12 @@ jobs:
             echo "[]" > data/lotto-data.json
             echo "Created empty data file"
           fi
+
+      - name: Pull latest changes
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git pull origin main --rebase
 
       - name: Update lotto data
         run: |
@@ -41,4 +49,4 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "Update lotto data - 자동 업데이트"
-          file_pattern: "data/lotto-data.json"
+          file_pattern: "data/lotto-data.json data/backups/*"
