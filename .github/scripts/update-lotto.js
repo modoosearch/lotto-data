@@ -44,25 +44,34 @@ async function main() {
     const testRound = 1172;
     console.log(`테스트: ${testRound}회차 데이터 가져오기 시도...`);
     
-    // 5. 동행복권 웹사이트에서 데이터 가져오기
+    // 5. 동행복권 웹사이트에서 데이터 가져오기 (인코딩 설정)
     const response = await axios.get(
-      `https://www.dhlottery.co.kr/gameResult.do?method=byWin&drwNo=${testRound}`
+      `https://www.dhlottery.co.kr/gameResult.do?method=byWin&drwNo=${testRound}`,
+      {
+        responseType: 'arraybuffer',
+        responseEncoding: 'binary'
+      }
     );
     
-    // 6. HTML 파싱
-    const $ = cheerio.load(response.data);
+    // 6. 응답 데이터를 EUC-KR에서 UTF-8로 변환
+    const iconv = require('iconv-lite');
+    const html = iconv.decode(response.data, 'EUC-KR');
     
-    // 7. 회차 정보 추출
+    // 7. HTML 파싱
+    const $ = cheerio.load(html);
+    
+    // 8. 회차 정보 추출
     const roundText = $('.win_result h4 strong').text().trim();
     const round = parseInt(roundText.replace(/[^0-9]/g, ''));
     console.log('회차:', round);
     
-    // 8. 추첨일 추출
+    // 9. 추첨일 추출
     const drawDateText = $('.win_result p.desc').text().trim();
-    const drawDate = drawDateText.replace(/[$$$$]/g, '');
+    // 괄호 제거 및 공백 정리
+    const drawDate = drawDateText.replace(/[$$$$]/g, '').trim();
     console.log('추첨일:', drawDate);
     
-    // 9. 당첨번호 추출
+    // 10. 당첨번호 추출
     const winNumbers = [];
     $('.win_result .num.win p span').each((index, element) => {
       const number = parseInt($(element).text().trim());
@@ -70,21 +79,21 @@ async function main() {
     });
     console.log('당첨번호:', winNumbers);
     
-    // 10. 보너스 번호 추출
+    // 11. 보너스 번호 추출
     const bonusNumber = parseInt($('.win_result .num.bonus p span').text().trim());
     console.log('보너스번호:', bonusNumber);
     
-    // 11. 1등 당첨자 수 추출 (제공된 셀렉터 사용)
+    // 12. 1등 당첨자 수 추출 (제공된 셀렉터 사용)
     const firstWinnersText = $('table.tbl_data tbody tr:nth-child(1) td:nth-child(3)').text().trim();
     const firstWinners = parseInt(firstWinnersText.replace(/[^0-9]/g, ''));
     console.log('1등 당첨자 수:', firstWinners);
     
-    // 12. 1인당 당첨금액 추출 (제공된 셀렉터 사용)
+    // 13. 1인당 당첨금액 추출 (제공된 셀렉터 사용)
     const firstPrizeText = $('table.tbl_data tbody tr:nth-child(1) td:nth-child(4)').text().trim();
     const firstPrize = parseInt(firstPrizeText.replace(/[^0-9]/g, ''));
     console.log('1인당 당첨금액:', firstPrize);
     
-    // 13. 데이터 객체 생성
+    // 14. 데이터 객체 생성
     const newData = {
       round,
       numbers: winNumbers,
@@ -96,18 +105,19 @@ async function main() {
     
     console.log('파싱된 데이터:', newData);
     
-    // 14. 기존 데이터에서 같은 회차 제거 (있는 경우)
+    // 15. 기존 데이터에서 같은 회차 제거 (있는 경우)
     lottoData = lottoData.filter(item => item.round !== round);
     
-    // 15. 새 데이터 추가
-    lottoData.push(newData);
+    // 16. 새 데이터를 배열의 맨 앞에 추가 (최신 회차가 맨 위에 오도록)
+    lottoData.unshift(newData);
     
-    // 16. 회차 기준 내림차순 정렬
+    // 17. 회차 기준 내림차순 정렬 (추가 보장)
     lottoData.sort((a, b) => b.round - a.round);
     
-    // 17. 파일에 저장
+    // 18. 파일에 저장
     fs.writeFileSync(dataPath, JSON.stringify(lottoData, null, 2));
     console.log(`${round}회차 데이터가 성공적으로 추가되었습니다.`);
+    console.log('최신 회차가 맨 위에 오도록 정렬되었습니다.');
   } catch (error) {
     console.error('로또 데이터 업데이트 중 오류 발생:', error);
     console.error('오류 세부 정보:', error.message);
