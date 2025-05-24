@@ -1,5 +1,20 @@
 [
   {
+    "round": 1173,
+    "numbers": [
+      1,
+      5,
+      18,
+      20,
+      30,
+      35
+    ],
+    "bonusNumber": 3,
+    "firstPrize": 1179946063,
+    "firstWinners": 24,
+    "drawDate": "2025. 05. 24. 추첨"
+  },
+  {
     "round": 1172,
     "numbers": [
       7,
